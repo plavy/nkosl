@@ -1,0 +1,33 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:13-alpine
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+    environment:
+      - POSTGRES_PASSWORD=nkosl
+      - POSTGRES_DB=nkosl
+    volumes: 
+      - db:/var/lib/postgresql/data
+  nkosl-blog:
+    build:
+      context: nkosl-blog
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+    environment:
+      - DB_USER=postgres
+      - DB_PASSWORD=nkosl
+      - DB_HOST=postgres
+    ports:
+      - '8000:80'
+    depends_on:
+      - postgres
+    links:
+      - postgres
+volumes:
+  db:
+    driver: local

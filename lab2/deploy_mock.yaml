@@ -1,0 +1,24 @@
+- name: "setup app with mock data"
+  hosts: app
+  remote_user: nkosl
+
+  tasks:
+    - name: "install git nginx pip"
+      apt:
+        name: [git, nginx, python3-pip]
+        state: present
+      become: true
+    - name: "pull mock repo"
+      git:
+        repo: https://github.com/KSET/nkosl-www.git
+        version: mock
+        dest: ~/nkosl-www
+    - name: "install virtualenv"
+      pip:
+        name: virtualenv
+      become: true
+    - name: "install python requirements"
+      pip: 
+        requirements: ~/nkosl-www/app/nkosl-blog/requirements.txt
+        virtualenv: ~/venv
+        virtualenv_python: python3

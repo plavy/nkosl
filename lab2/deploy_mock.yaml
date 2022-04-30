@@ -1,24 +1,45 @@
-- name: "setup app with mock data"
+- name: Setup app with mock data
   hosts: app
   remote_user: nkosl
+  become: yes
 
   tasks:
-    - name: "install git nginx pip"
+    - name: Install git nginx pip
       apt:
-        name: [git, nginx, python3-pip]
+        name: [git, nginx, python3-pip, libpq-dev]
         state: present
-      become: true
-    - name: "pull mock repo"
+    - name: Pull mock repo
       git:
         repo: https://github.com/KSET/nkosl-www.git
         version: mock
-        dest: ~/nkosl-www
-    - name: "install virtualenv"
+        dest: /opt/nkosl-www
+    - name: Install virtualenv
       pip:
         name: virtualenv
-      become: true
-    - name: "install python requirements"
+    - name: Install python requirements
       pip: 
-        requirements: ~/nkosl-www/app/nkosl-blog/requirements.txt
-        virtualenv: ~/venv
+        requirements: /opt/nkosl-www/app/nkosl-blog/requirements.txt
+        virtualenv: /home/nkosl/nkosl_env
         virtualenv_python: python3
+    - name: Add nkosl systemd service
+      copy:
+        remote_src: true
+        src: /opt/nkosl-www/nkosl_blog.service
+        dest: /etc/systemd/system/nkosl_blog.service
+    - name: Start nkosl systemd service
+      systemd:
+        name: nkosl_blog
+        state: started
+    - name: Delete default nginx site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+    - name: Add nkosl nginx server
+      copy:
+        remote_src: true
+        src: /opt/nkosl-www/nkosl_blog.conf
+        dest: /etc/nginx/sites-enabled/nkosl_blog.conf
+    - name: Reload nginx
+      service:
+        name: nginx
+        state: restarted

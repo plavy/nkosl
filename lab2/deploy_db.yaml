@@ -40,6 +40,10 @@
         path: /etc/postgresql/13/main/postgresql.conf
         regexp: '# listen_addresses'
         line: "listen_addresses = '*'"
+    - name: Update postgres hba
+      lineinfile:
+        path: /etc/postgresql/13/main/pg_hba.conf
+        line: 'host nkosl nkosl 10.0.2.2/32 trust'
     - name: Restart postgres
       service:
         enabled: yes

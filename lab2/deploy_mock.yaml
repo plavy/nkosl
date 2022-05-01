@@ -1,7 +1,7 @@
 - name: Setup app with mock data
   hosts: app
   remote_user: nkosl
-  become: yes
+  become: true
 
   tasks:
     - name: Install git nginx pip
@@ -29,7 +29,8 @@
     - name: Start nkosl systemd service
       systemd:
         name: nkosl_blog
-        state: started
+        state: restarted
+        daemon_reload: true
     - name: Delete default nginx site
       file:
         path: /etc/nginx/sites-enabled/default

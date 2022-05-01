@@ -1,0 +1,46 @@
+- name: Connect app to db
+  hosts: app
+  remote_user: nkosl
+  become: true
+
+  tasks:
+    - name: Pull develop repo
+      git:
+        repo: https://github.com/KSET/nkosl-www.git
+        version: develop
+        dest: /opt/nkosl-www
+    - name: Set environment variables
+      lineinfile:
+        path: /opt/nkosl-www/gunicorn.env
+        line: '{{ item }}'
+        create: true
+      with_items:
+        - 'DB_HOST=192.168.1.105'
+        - 'DB_PASSWORD=nkosl'
+    - name: Init flask
+      command: /home/nkosl/nkosl_env/bin/flask db init
+      args:
+        creates: migrations
+      environment:
+        FLASK_APP: /opt/nkosl-www/app/nkosl-blog/app
+        DB_HOST: 192.168.1.105
+        DB_PASSWORD: nkosl
+    - name: Setup flask
+      command: '{{ item }}'
+      with_items:
+        - /home/nkosl/nkosl_env/bin/flask db migrate
+        - /home/nkosl/nkosl_env/bin/flask db upgrade
+      environment:
+        FLASK_APP: /opt/nkosl-www/app/nkosl-blog/app
+        DB_HOST: 192.168.1.105
+        DB_PASSWORD: nkosl
+    - name: Add nkosl systemd service
+      copy:
+        remote_src: true
+        src: /opt/nkosl-www/nkosl_blog.service
+        dest: /etc/systemd/system/nkosl_blog.service
+    - name: Start nkosl systemd service
+      systemd:
+        name: nkosl_blog
+        state: restarted
+        daemon_reload: true

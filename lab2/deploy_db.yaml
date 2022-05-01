@@ -1,0 +1,47 @@
+- name: Setup db
+  hosts: db
+  remote_user: nkosl
+  become: yes
+  vars:
+    ansible_ssh_pipelining: yes
+
+  tasks:
+    - name: Install postgresql
+      apt:
+        name: [git, postgresql=13+225, libpq-dev, python3-psycopg2]
+        state: present
+    - name: Setup postgresql user
+      become: yes
+      become_user: postgres
+      postgresql_user:
+        name: nkosl
+        password: nkosl
+        role_attr_flags: SUPERUSER
+    - name: Create postgres db
+      become: no
+      postgresql_db:
+        login_user: nkosl
+        login_password: nkosl
+        name: nkosl
+        state: present
+    - name: Pull repo
+      git:
+        repo: https://github.com/KSET/nkosl-www.git
+        version: master
+        dest: /opt/nkosl-www
+    - name: Create posts
+      become: no
+      command: psql -f /opt/nkosl-www/db/scripts/create_posts.sql
+    - name: Fill posts
+      become: no
+      command: psql -f /opt/nkosl-www/db/scripts/fill_posts.sql
+    - name: Update postgres listen addresses
+      lineinfile:
+        path: /etc/postgresql/13/main/postgresql.conf
+        regexp: '# listen_addresses'
+        line: "listen_addresses = '*'"
+    - name: Restart postgres
+      service:
+        enabled: yes
+        name: postgresql
+        state: restarted

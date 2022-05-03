@@ -1,0 +1,138 @@
+- name: Setup db
+  hosts: db-sandbox
+  remote_user: nkosl
+  become: true
+  vars:
+    ansible_ssh_pipelining: true
+
+  tasks:
+    - name: Install postgresql
+      apt:
+        name: [git, postgresql=13+225, libpq-dev, python3-psycopg2]
+        state: present
+    - name: Setup postgresql user
+      become_user: postgres
+      postgresql_user:
+        name: nkosl
+        password: nkosl
+        role_attr_flags: SUPERUSER
+    - name: Create postgres db
+      become: false
+      postgresql_db:
+        login_user: nkosl
+        login_password: nkosl
+        name: nkosl
+        state: present
+    - name: Pull repo
+      git:
+        repo: https://github.com/KSET/nkosl-www.git
+        version: develop
+        dest: /opt/nkosl-www
+    - name: Populate postgres db
+      become: false
+      block:
+        - name: Create posts
+          postgresql_query:
+            login_user: nkosl
+            login_password: nkosl
+            db: nkosl
+            path_to_script: /opt/nkosl-www/db/scripts/create_posts.sql
+        - name: Fill posts
+          postgresql_query:
+            login_user: nkosl
+            login_password: nkosl
+            db: nkosl
+            path_to_script: /opt/nkosl-www/db/scripts/fill_posts.sql
+      rescue:
+        - name: Ignore error
+          command: echo
+    - name: Update postgres listen addresses
+      lineinfile:
+        path: /etc/postgresql/13/main/postgresql.conf
+        regexp: '# listen_addresses'
+        line: "listen_addresses = '*'"
+    - name: Update postgres hba
+      lineinfile:
+        path: /etc/postgresql/13/main/pg_hba.conf
+        line: 'host nkosl nkosl 10.0.2.2/32 trust'
+    - name: Restart postgres
+      service:
+        enabled: true
+        name: postgresql
+        state: restarted
+
+- name: Setup app
+  hosts: app-sandbox
+  remote_user: nkosl
+  become: true
+
+  tasks:
+    - name: Install git nginx pip
+      apt:
+        name: [git, nginx, python3-pip, libpq-dev]
+        state: present
+    - name: Pull develop repo
+      git:
+        repo: https://github.com/KSET/nkosl-www.git
+        version: develop
+        dest: /opt/nkosl-www
+    - name: Install virtualenv
+      pip:
+        name: virtualenv
+    - name: Install python requirements
+      pip:
+        requirements: /opt/nkosl-www/app/nkosl-blog/requirements.txt
+        virtualenv: /home/nkosl/nkosl_env
+        virtualenv_python: python3
+    - name: Set environment variables
+      lineinfile:
+        path: /opt/nkosl-www/gunicorn.env
+        line: '{{ item }}'
+        create: true
+      with_items:
+        - 'DB_HOST=192.168.1.105'
+        - 'DB_PORT=5433'
+        - 'DB_PASSWORD=nkosl'
+    - name: Init flask
+      command: /home/nkosl/nkosl_env/bin/flask db init
+      args:
+        creates: migrations
+      environment:
+        FLASK_APP: /opt/nkosl-www/app/nkosl-blog/app
+        DB_HOST: 192.168.1.105
+        DB_PORT: 5433
+        DB_PASSWORD: nkosl
+    - name: Setup flask
+      command: '{{ item }}'
+      with_items:
+        - /home/nkosl/nkosl_env/bin/flask db migrate
+        - /home/nkosl/nkosl_env/bin/flask db upgrade
+      environment:
+        FLASK_APP: /opt/nkosl-www/app/nkosl-blog/app
+        DB_HOST: 192.168.1.105
+        DB_PORT: 5433
+        DB_PASSWORD: nkosl
+    - name: Add nkosl systemd service
+      copy:
+        remote_src: true
+        src: /opt/nkosl-www/nkosl_blog.service
+        dest: /etc/systemd/system/nkosl_blog.service
+    - name: Start nkosl systemd service
+      systemd:
+        name: nkosl_blog
+        state: restarted
+        daemon_reload: true
+    - name: Delete default nginx site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+    - name: Add nkosl nginx server
+      copy:
+        remote_src: true
+        src: /opt/nkosl-www/nkosl_blog.conf
+        dest: /etc/nginx/sites-enabled/nkosl_blog.conf
+    - name: Reload nginx
+      service:
+        name: nginx
+        state: restarted
+

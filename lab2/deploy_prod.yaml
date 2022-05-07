@@ -15,7 +15,7 @@
         line: '{{ item }}'
         create: true
       with_items:
-        - 'DB_HOST=192.168.1.105'
+        - 'DB_HOST=10.0.2.2'
         - 'DB_PASSWORD=nkosl'
     - name: Init flask
       command: /home/nkosl/nkosl_env/bin/flask db init
@@ -23,7 +23,7 @@
         creates: migrations
       environment:
         FLASK_APP: /opt/nkosl-www/app/nkosl-blog/app
-        DB_HOST: 192.168.1.105
+        DB_HOST: 10.0.2.2
         DB_PASSWORD: nkosl
     - name: Setup flask
       command: '{{ item }}'
@@ -32,7 +32,7 @@
         - /home/nkosl/nkosl_env/bin/flask db upgrade
       environment:
         FLASK_APP: /opt/nkosl-www/app/nkosl-blog/app
-        DB_HOST: 192.168.1.105
+        DB_HOST: 10.0.2.2
         DB_PASSWORD: nkosl
     - name: Add nkosl systemd service
       copy:

@@ -12,8 +12,7 @@ services:
     volumes:
       - db:/var/lib/postgresql/data
   nkosl-blog:
-    build:
-      context: nkosl-blog
+    image: registry.nkosl.plavy.me/nkosl:latest
     deploy:
       restart_policy:
         condition: on-failure

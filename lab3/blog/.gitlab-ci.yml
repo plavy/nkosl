@@ -1,0 +1,44 @@
+stages:
+  - build
+  - pre-deploy
+  - deploy
+
+variables:
+  DOCKER_REGISTRY: registry.nkosl.plavy.me
+  DOCKER_USER: plavy
+
+build:
+  stage: build
+  script:
+    - docker login ${DOCKER_REGISTRY} -u ${DOCKER_USER} -p ${DOCKER_PASSWORD}
+    - docker build -t ${DOCKER_REGISTRY}/nkosl:${CI_COMMIT_SHA} .
+    - docker push ${DOCKER_REGISTRY}/nkosl:${CI_COMMIT_SHA}
+
+push-latest:
+  stage : pre-deploy
+  script:
+    - docker login ${DOCKER_REGISTRY} -u ${DOCKER_USER} -p ${DOCKER_PASSWORD}
+    - docker pull ${DOCKER_REGISTRY}/nkosl:${CI_COMMIT_SHA}
+    - docker tag ${DOCKER_REGISTRY}/nkosl:${CI_COMMIT_SHA} ${DOCKER_REGISTRY}/nkosl:latest
+    - docker push ${DOCKER_REGISTRY}/nkosl:latest
+  only:
+    - main
+
+backup-db:
+  stage: pre-deploy
+  script:
+    - docker exec home_postgres_1 pg_dump -U postgres nkosl > /home/gitlab-runner/dump.sql
+    - mv /home/gitlab-runner/dump.sql /home/gitlab-runner/db-backups/dump-$(date +"%d-%m-%Y-%H-%M-%S").sql
+  only:
+    - main
+
+deploy:
+  stage: deploy
+  script:
+    - docker login ${DOCKER_REGISTRY} -u ${DOCKER_USER} -p ${DOCKER_PASSWORD}
+    - cd /home
+    - docker-compose pull nkosl-blog
+    - docker-compose up -d
+  only:
+    - main
+

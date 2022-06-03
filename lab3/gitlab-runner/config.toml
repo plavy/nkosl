@@ -1,0 +1,16 @@
+concurrent = 1
+check_interval = 0
+
+[session_server]
+  session_timeout = 1800
+
+[[runners]]
+  name = "ubuntu-s-2vcpu-4gb-intel-ams3-01"
+  url = "https://gitlab.nkosl.plavy.me"
+  token = "RCVxgZfbVr-NfK5NFK8f"
+  executor = "shell"
+  [runners.custom_build_dir]
+  [runners.cache]
+    [runners.cache.s3]
+    [runners.cache.gcs]
+    [runners.cache.azure]
